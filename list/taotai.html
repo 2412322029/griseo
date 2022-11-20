@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>存储管理</title>
+</head>
+
+<body>
+    <!-- 输入 -->
+    <fieldset>
+        <legend>输入</legend>
+        <div id="op">
+            <p>
+                <label for="list">访问序列: </label>
+                <input type="text" name="text" id="list" value="7,0,1,2,0,3,0,4,2,3,0,3,2,1,2,0,1,7,0,1">
+            </p>
+
+            <p>
+                <label for="range">内存块数:</label>
+                <input type="range" oninput="change()" step="1" max="6" min="2" name="range" id="range">
+                <span id="value">4</span>
+            </p>
+
+            <p>
+                <label for="sel">选择算法:</label>
+                <select id="sel">
+                    <option value="FIFO">先进先出的算法（FIFO）</option>
+                    <option value="LRU">最近最少使用算法（LRU）</option>
+                </select>
+                <button id="ok" onclick="ok()" type="button">确定</button>
+            </p>
+
+        </div>
+    </fieldset>
+    <!-- 输出 -->
+    <fieldset>
+        <legend>输出</legend>
+        <div id="main">
+            <h4 id="title"></h4>
+            <p id="msg"></p>
+            <table border="0" cellpadding="0" cellspacing="0">
+                <tbody id="table">
+                    <tr id="head">
+                        <td>访问序列</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p id="miss"></p>
+        <p id="time"></p>
+    </fieldset>
+
+</body>
+<script>
+    /*
+    @Date: 2022/11/12
+    @author:涂文豪
+    页式存储管理中页面置换算法模拟，
+    先进先出的算法（FIFO）与 最近最少使用算法（LRU）
+    */
+    var PageTrack = [7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1]//默认访问序列
+    var MemoryBlocks = 4//默认内存块数
+    var PageMissingRate = 0//缺页率
+    var is_MissingPage = []//是否缺页
+    var start, end;
+
+    //先进先出的算法（FIFO）
+    function FIFO(PageTrack, MemoryBlock) {
+        start = performance.now();//开始计时
+        is_MissingPage = []//重置
+        let resultarr = []//结果序列
+        var MemoryBlockarr = []//内存数组
+        var count = 0//缺页计数
+        for (let index = 0; index < PageTrack.length; index++) {//遍历访问序列
+            var element = PageTrack[index];
+            if (!MemoryBlockarr.includes(element)) {//不存在的页号才添加
+                MemoryBlockarr.unshift(element)//添加到内存数组开头；
+                count++;
+                is_MissingPage.push(1)
+            } else {
+                is_MissingPage.push(0)
+            }
+            if (MemoryBlockarr.length > MemoryBlock) {//内存数组长度大于内存块数时删除最后一个
+                MemoryBlockarr.pop();
+            }
+            resultarr.push(MemoryBlockarr.concat())//把每次的结果添加到结果序列//浅拷贝数组
+        }
+
+        PageMissingRate = "<sup>" + count + "</sup>/<sub>" + PageTrack.length + "</sub>,   " + Math.round((count / PageTrack.length) * 10000) / 100 + "%"
+        end = performance.now();//计算耗时
+        return resultarr
+    }
+
+    //最近最少使用算法（LRU）
+    function LRU(PageTrack, MemoryBlock) {
+        start = performance.now();
+        is_MissingPage = []//重置
+        let resultarr = []//结果序列
+        var MemoryBlockarr = []//内存数组
+        var count = 0//缺页计数
+        for (let index = 0; index < PageTrack.length; index++) {//遍历页轨迹
+            var element = PageTrack[index];
+            if (MemoryBlockarr.includes(element)) {//已经存在的页号上移到顶部
+                // console.log(MemoryBlockarr)
+                MemoryBlockarr.splice(MemoryBlockarr.indexOf(element), 1)
+                MemoryBlockarr.unshift(element)//删除元素然后添加到数组开头；      
+                is_MissingPage.push(0)
+            } else {
+                MemoryBlockarr.unshift(element)//新页添加到数组开头；
+                is_MissingPage.push(1)
+                count++;
+            }
+            if (MemoryBlockarr.length > MemoryBlock) {//内存数组长度大于内存块数时删除最后一个
+                MemoryBlockarr.pop();
+            }
+            resultarr.push(MemoryBlockarr.concat())//把每次的结果添加到结果序列//浅拷贝数组
+
+        }
+        PageMissingRate = "<sup>" + count + "</sup>/<sub>" + PageTrack.length + "</sub>,   " + Math.round((count / PageTrack.length) * 10000) / 100 + "%"
+        end = performance.now();
+        return resultarr
+    }
+
+
+    //显示输出-------
+    pj = []
+    var bselectedValue
+    function ok() {
+        document.getElementById("main").innerHTML = `
+        <h4 id="title"></h4>
+        <p id="msg"></p>
+        <table border="0" cellpadding="0" cellspacing="0">
+            <tbody id="table">
+                <tr id="head">
+                    <td>访问序列</td>
+                </tr>
+            </tbody>
+        </table>`
+        MemoryBlocks = document.getElementById('range').value;
+        var reg = /^(\d+,?)+$/;
+        str = document.getElementById("list").value
+        if (reg.test(str)) {
+            try {
+                PageTrack = eval("[" + str + "]");
+            }
+            catch (err) {
+                alert(err)
+            }
+        } else {
+            alert("输入以英文逗号分隔的数字");
+        }
+        document.getElementById("msg").innerHTML = "<p>内存块数：" + MemoryBlocks + "</p><p>访问序列：" + PageTrack.join("<span> -> </span>") + "</p>"
+
+        var selectEle = document.getElementById("sel");
+        var index = selectEle.selectedIndex;
+        var selectedValue = selectEle.options[index].value;
+        if (selectedValue != bselectedValue) {
+            pj = []
+        }
+        console.log("这次" + selectedValue, "上次" + bselectedValue);
+        if (selectedValue == "FIFO") {
+            bselectedValue = "FIFO"
+            CreatAndShow(PageTrack, FIFO(PageTrack, MemoryBlocks), MemoryBlocks)
+            document.getElementById("title").innerHTML = "先进先出的算法(FIFO)"
+
+        } else if (selectedValue == "LRU") {
+            bselectedValue = "LRU"
+            CreatAndShow(PageTrack, LRU(PageTrack, MemoryBlocks), MemoryBlocks)
+            document.getElementById("title").innerHTML = "最近最少使用算法（LRU）"
+        }
+
+        t = end - start
+        if (t != 0) {
+            pj.push(t)
+            pjtime = eval(pj.join('+')) / pj.length
+            document.getElementById('time').innerHTML = `耗时： ${t} ms<br>
+                                                    平均耗时：${pjtime} ms<br>
+        `;
+        }
+
+    }
+    function change() {
+        var value = document.getElementById('range').value;
+        document.getElementById('value').innerHTML = value;
+    }
+
+
+    function CreatAndShow(PageTrack, resultarr, MemoryBlocks) {
+        for (let index = 0; index < PageTrack.length; index++) {
+            nodeappend("td", PageTrack[index], "head")
+
+        }
+        for (let i = 0; i < MemoryBlocks; i++) {
+            nodeappend("tr", "", "table", "b" + i)
+            for (let j = 0; j < PageTrack.length; j++) {
+                if (j == 0) {
+                    nodeappend("td", "内存块" + i, "b" + i)
+                }
+
+                r = resultarr[j][i];
+                if (r != undefined) {
+                    nodeappend("td", r, "b" + i)
+                } else {
+                    nodeappend("td", "x", "b" + i)
+                }
+            }
+        }
+        nodeappend("tr", "", "table", "b")
+        nodeappend("td", "是否缺页", "b")
+        for (let i = 0; i < PageTrack.length; i++) {
+            if (is_MissingPage[i] == 1) {
+                nodeappend("td", "✓", "b", "g")
+            }
+            if (is_MissingPage[i] == 0) {
+                nodeappend("td", "X", "b", "r")
+            }
+
+        }
+        document.getElementById("miss").innerHTML = "缺页率：" + PageMissingRate
+    }
+    function nodeappend(node, conent, BYid, num) {
+        var para = document.createElement(node);
+        var node = document.createTextNode(conent);
+        para.appendChild(node);
+        if (num != undefined) {
+            para.setAttribute("id", num);
+            para.setAttribute("class", "mb");
+        }
+        var element = document.getElementById(BYid);
+        element.appendChild(para);
+    }
+</script>
+<style>
+    span {
+        color: rgb(247, 5, 61);
+    }
+
+    .mb>td:first-child {
+        color: rgb(14, 37, 240);
+        border-right: 1px solid #000000;
+    }
+
+    #list {
+        width: 500px;
+        font-size: 20px;
+    }
+
+    .mb #g {
+        color: green;
+    }
+
+    .mb #r {
+        color: red;
+    }
+
+    #head>td {
+        color: blue;
+    }
+
+    p {
+        margin: 0.7em 0em;
+        line-height: 1.35;
+    }
+
+    fieldset {
+        margin: 0 0 20px 0;
+    }
+
+    sub,
+    sup {
+        font-size: 80%;
+    }
+
+    input[type=text],
+    input[type=number],
+    button,
+    select {
+        padding: 0.1em 0.3em;
+        border: 0.06em solid #A0A0A0;
+    }
+
+    input[type=text],
+    input[type=number] {
+        border-radius: 0.1em;
+    }
+
+    button:hover {
+        background-color: #A0A0A0;
+        cursor: pointer;
+    }
+
+    input[type=text]:focus,
+    input[type=number]:focus {
+        outline: 0.12em solid #A0A0A0;
+    }
+
+    input[type=range] {
+        margin-top: 8px;
+        -webkit-appearance: none;
+        background: #ddd;
+        height: 16px;
+        border: 0.06em solid #A0A0A0;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        height: 16px;
+        width: 16px;
+        background: #f8f9fa;
+        cursor: pointer;
+    }
+
+    /* TABLES=======================================================*/
+    table {
+        border-collapse: collapse;
+    }
+
+    table th {
+        font-weight: bold;
+    }
+
+    table th,
+    table td {
+        border: 1px solid #ccc;
+        padding: 6px 17px;
+    }
+
+    table tr {
+        border-top: 1px solid #ccc;
+        background-color: #fff;
+    }
+
+    table tr:nth-child(2n) {
+        background-color: #f8f8f8;
+    }
+</style>
+
+</html>
